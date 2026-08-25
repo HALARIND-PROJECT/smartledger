@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Ledger Pro KE</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .tab-active { border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: bold; }
+    .month-tab { padding: 4px 12px; cursor: pointer; border-radius: 4px; font-size: 0.875rem; }
+    .month-tab:hover { background: #eff6ff; }
+    .month-active { background: #2563eb; color: white; }
+    .row-cn { background-color: #fef2f2 !important; }
+    .row-export { background-color: #eff6ff !important; }
+    .badge { padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    .badge-signed { background: #dcfce7; color: #166534; }
+    .badge-checked { background: #dbeafe; color: #1e40af; }
+    .badge-confirmed { background: #fef08a; color: #854d0e; }
+    .pin-input { letter-spacing: 1.5rem; text-align: center; font-size: 1.5rem; font-weight: bold; }
+    .shake { animation: shake 0.4s ease-in-out; }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-8px); }
+      75% { transform: translateX(8px); }
+    }
+    .pulse-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #22c55e;
+      display: inline-block; animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+  <!-- ============================================ -->
+  <!-- 🔐 LOGIN SCREEN (Username + 4-Digit PIN)     -->
+  <!-- ============================================ -->
+  <div id="login-screen" class="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-100 p-4">
+    <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm border-t-4 border-blue-600">
+      <div class="text-center mb-6">
+        <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full mx-auto flex items-center justify-center mb-3 shadow-lg">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        </div>
+        <h2 class="text-2xl font-bold text-gray-800">Smart Ledger Pro <span class="text-blue-600">KE</span></h2>
+        <p class="text-sm text-gray-500 mt-1">Secure Authentication</p>
+      </div>
+      
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Username</label>
+          <input type="text" id="username" placeholder="Enter your username" 
+                 class="w-full p-3 border border-gray-300 rounded-lg mt-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                 autocomplete="username">
+        </div>
+        
+        <div>
+          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">4-Digit PIN</label>
+          <input type="password" id="pin" placeholder="••••" maxlength="4" inputmode="numeric"
+                 class="w-full p-3 border border-gray-300 rounded-lg mt-1 pin-input focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                 oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                 autocomplete="current-password">
+        </div>
+        
+        <button onclick="loginWithPin()" id="login-btn"
+                class="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 font-bold shadow-md transition transform hover:scale-[1.02] active:scale-[0.98]">
+          🔐 Login Securely
+        </button>
+        
+        <div id="login-error" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-lg text-center"></div>
+        <div id="login-success" class="hidden bg-green-50 border border-green-200 text-green-700 text-sm p-3 rounded-lg text-center"></div>
+      </div>
+      
+      <div class="mt-6 pt-4 border-t text-center">
+        <p class="text-xs text-gray-400 flex items-center justify-center gap-2">
+          <span class="pulse-dot"></span>
+          Protected by Firebase Security
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- 📊 MAIN APP SCREEN                           -->
+  <!-- ============================================ -->
+  <div id="app-screen" class="hidden flex flex-col h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-sm px-6 py-3 flex justify-between items-center border-b">
+      <h1 class="text-xl font-bold text-gray-800">Smart Ledger Pro <span class="text-blue-600">KE</span></h1>
+      <div class="flex items-center gap-4">
+        <span id="user-info" class="text-sm text-gray-600 hidden md:inline"></span>
+        <select id="year-select" onchange="changeYear()" class="p-2 border rounded text-sm font-semibold">
+          <option value="2024">2024</option><option value="2025">2025</option>
+          <option value="2026" selected>2026</option><option value="2027">2027</option>
+          <option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
+        </select>
+        <button onclick="logout()" class="text-sm text-red-500 hover:underline font-semibold">Logout</button>
+      </div>
+    </header>
+
+    <!-- Month Tabs -->
+    <nav class="bg-white px-6 py-2 flex gap-2 overflow-x-auto border-b" id="month-tabs"></nav>
+
+    <main class="flex-1 overflow-auto p-6">
+      <!-- Navigation -->
+      <div class="flex gap-4 mb-6">
+        <button onclick="showTab('dashboard')" id="tab-dashboard" class="px-4 py-2 bg-white rounded shadow-sm font-semibold tab-active">Dashboard</button>
+        <button onclick="showTab('entry')" id="tab-entry" class="px-4 py-2 bg-white rounded shadow-sm font-semibold text-gray-600">Quick Post</button>
+        <button onclick="showTab('ledger')" id="tab-ledger" class="px-4 py-2 bg-white rounded shadow-sm font-semibold text-gray-600">Master Ledger</button>
+      </div>
+
+      <!-- DASHBOARD -->
+      <section id="view-dashboard">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-white p-4 rounded shadow-sm border-l-4 border-green-500"><h3 class="text-gray-500 text-xs uppercase">Standard Sales (KES)</h3><p id="kpi-standard" class="text-xl font-bold mt-1">0.00</p></div>
+          <div class="bg-white p-4 rounded shadow-sm border-l-4 border-blue-500"><h3 class="text-gray-500 text-xs uppercase">Zero-Rated Exports (KES)</h3><p id="kpi-zero" class="text-xl font-bold mt-1">0.00</p></div>
+          <div class="bg-white p-4 rounded shadow-sm border-l-4 border-red-500"><h3 class="text-gray-500 text-xs uppercase">Total Output VAT (KES)</h3><p id="kpi-vat" class="text-xl font-bold mt-1 text-red-600">0.00</p></div>
+          <div class="bg-white p-4 rounded shadow-sm border-l-4 border-orange-500"><h3 class="text-gray-500 text-xs uppercase">Missing Invoices</h3><p id="kpi-missing" class="text-xl font-bold mt-1 text-orange-600">0</p></div>
+        </div>
+        <div class="bg-white p-6 rounded shadow-sm mb-6">
+          <h3 class="font-bold mb-4 text-gray-700">Revenue Trend (Confirmed)</h3>
+          <canvas id="revenueChart" height="100"></canvas>
+        </div>
+      </section>
+
+      <!-- QUICK POST -->
+      <section id="view-entry" class="hidden bg-white p-6 rounded shadow-sm max-w-5xl">
+        <h2 class="text-xl font-bold mb-4 text-gray-800">Ultra-Compact Quick Post</h2>
+        <form id="entry-form" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="relative md:col-span-2">
+            <label class="text-xs font-semibold text-gray-500 uppercase">Customer (Name or PIN)</label>
+            <input type="text" id="cust_search" oninput="searchCust(this.value)" onblur="setTimeout(()=>hideDropdown(), 200)" autocomplete="off" class="w-full p-2 border rounded mt-1" placeholder="Start typing...">
+            <div id="cust_dropdown" class="hidden absolute z-10 bg-white border w-full max-h-48 overflow-y-auto shadow-lg"></div>
+            <input type="hidden" id="cust_id">
+            <input type="text" id="cust_pin" readonly class="w-full p-2 border rounded mt-2 bg-gray-50 text-xs" placeholder="KRA PIN">
+          </div>
+          <div><label class="text-xs font-semibold text-gray-500 uppercase">Date</label><input type="date" id="date" class="w-full p-2 border rounded mt-1"></div>
+          <div><label class="text-xs font-semibold text-gray-500 uppercase">Invoice No</label><input type="text" id="inv_no" class="w-full p-2 border rounded mt-1" placeholder="INV-4022"></div>
+          
+          <div><label class="text-xs font-semibold text-gray-500 uppercase">Type</label>
+            <select id="type" onchange="calcTax()" class="w-full p-2 border rounded mt-1">
+              <option value="Invoice">Standard (16%)</option><option value="Export">Export (0%)</option><option value="Credit Note">Credit Note</option>
+            </select>
+          </div>
+          <div><label class="text-xs font-semibold text-gray-500 uppercase">Currency</label>
+            <select id="currency" onchange="calcTax()" class="w-full p-2 border rounded mt-1">
+              <option value="KES">KES</option><option value="USD">USD</option><option value="EUR">EUR</option>
+            </select>
+          </div>
+          <div><label class="text-xs font-semibold text-gray-500 uppercase">Exch. Rate</label><input type="number" id="exchange_rate" value="1" step="0.01" oninput="calcTax()" class="w-full p-2 border rounded mt-1"></div>
+          <div><label class="text-xs font-semibold text-gray-500 uppercase">Net Amount</label><input type="number" id="net" oninput="calcTax('net')" step="0.01" class="w-full p-2 border rounded mt-1 bg-blue-50 font-bold"></div>
+          <div><label class="text-xs font-semibold text-gray-500 uppercase">VAT</label><input type="number" id="vat" readonly class="w-full p-2 border rounded mt-1 bg-gray-100"></div>
+          <div><label class="text-xs font-semibold text-gray-500 uppercase">Gross Amount</label><input type="number" id="gross" oninput="calcTax('gross')" step="0.01" class="w-full p-2 border rounded mt-1 bg-blue-50 font-bold"></div>
+
+          <div class="md:col-span-4 flex justify-end mt-2">
+            <button type="button" onclick="saveTransaction()" class="bg-green-600 text-white px-8 py-2 rounded hover:bg-green-700 font-bold shadow">Save & Sign</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- MASTER LEDGER -->
+      <section id="view-ledger" class="hidden bg-white p-4 rounded shadow-sm overflow-x-auto">
+        <table class="w-full text-sm text-left">
+          <thead class="bg-gray-100 text-gray-600 uppercase text-xs">
+            <tr>
+              <th class="p-3">Date</th><th class="p-3">Inv No</th><th class="p-3">Customer</th>
+              <th class="p-3">Type</th><th class="p-3 text-right">Net (KES)</th><th class="p-3 text-right">VAT (KES)</th>
+              <th class="p-3 text-center">Status</th><th class="p-3 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="ledger-body"></tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <!-- AUDIT REMARK MODAL -->
+  <div id="remark-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-96">
+      <h3 class="text-lg font-bold mb-4">Audit Remark</h3>
+      <textarea id="remark-text" class="w-full p-2 border rounded h-32" placeholder="Reason for discrepancy..."></textarea>
+      <div class="flex justify-end gap-2 mt-4">
+        <button onclick="closeRemarkModal()" class="px-4 py-2 text-gray-600">Cancel</button>
+        <button onclick="saveRemark()" class="px-4 py-2 bg-blue-600 text-white rounded">Save Remark</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- 🔥 FIREBASE + APP LOGIC                      -->
+  <!-- ============================================ -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, signInWithCustomToken, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, getDocs, doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
+
+    // ⚠️ REPLACE WITH YOUR FIREBASE CONFIG
+    const firebaseConfig = {
+      apiKey: "AIzaSyCnO27gxxMdMQfs-DD4dt1I1jcS1BTHqx4",
+      authDomain: "smartledger-36f37.firebaseapp.com",
+      projectId: "smartledger-36f37",
+      storageBucket: "smartledger-36f37.firebasestorage.app",
+      messagingSenderId: "276369956586",
+      appId: "1:276369956586:web:48753fb125fba1b0d78193"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const functions = getFunctions(app);
+
+    let currentUser = null, userPerms = {}, customersCache = [];
+    let selectedYear = 2026, selectedMonth = new Date().getMonth();
+    let currentRemarkDocId = null, chartInstance = null;
+
+    // ==========================================
+    // 🔐 PIN AUTHENTICATION
+    // ==========================================
+    window.loginWithPin = async () => {
+      const username = document.getElementById('username').value.trim();
+      const pin = document.getElementById('pin').value.trim();
+      const errorEl = document.getElementById('login-error');
+      const successEl = document.getElementById('login-success');
+      const loginBtn = document.getElementById('login-btn');
+      
+      errorEl.classList.add('hidden');
+      successEl.classList.add('hidden');
+      
+      if (!username || !pin) {
+        showError("Please enter username and PIN");
+        return;
+      }
+      
+      if (!/^\d{4}$/.test(pin)) {
+        showError("PIN must be exactly 4 digits");
+        return;
+      }
+      
+      loginBtn.disabled = true;
+      loginBtn.innerHTML = '<span class="inline-block animate-spin mr-2">⏳</span> Verifying...';
+      
+      try {
+        const loginFunc = httpsCallable(functions, 'loginWithPin');
+        const result = await loginFunc({ username, pin });
+        
+        successEl.innerText = "✓ Login successful. Loading...";
+        successEl.classList.remove('hidden');
+        
+        await signInWithCustomToken(auth, result.data.token);
+        
+      } catch (e) {
+        console.error("Login error:", e);
+        let errorMsg = "Login failed. Please try again.";
+        
+        if (e.code === 'functions/not-found' || e.code === 'functions/unauthenticated') {
+          errorMsg = "❌ Invalid username or PIN";
+        } else if (e.code === 'functions/permission-denied') {
+          errorMsg = "🔒 Account is locked. Contact admin.";
+        } else if (e.code === 'functions/invalid-argument') {
+          errorMsg = "⚠️ " + e.message;
+        } else if (e.code === 'functions/internal') {
+          errorMsg = "⚠️ Server error. Please try later.";
+        }
+        
+        showError(errorMsg);
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = '🔐 Login Securely';
+        document.getElementById('pin').value = '';
+        
+        // Shake animation on error
+        document.getElementById('pin').parentElement.classList.add('shake');
+        setTimeout(() => document.getElementById('pin').parentElement.classList.remove('shake'), 500);
+      }
+    };
+
+    function showError(msg) {
+      const errorEl = document.getElementById('login-error');
+      errorEl.innerText = msg;
+      errorEl.classList.remove('hidden');
+    }
+
+    // Enter key to submit
+    document.addEventListener('DOMContentLoaded', () => {
+      ['username', 'pin'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            const pin = document.getElementById('pin').value;
+            if (pin.length === 4) loginWithPin();
+          }
+        });
+      });
+    });
+
+    // ==========================================
+    // 👤 AUTH STATE HANDLER
+    // ==========================================
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        currentUser = user;
+        
+        // Fetch user profile
+        try {
+          const userDoc = await getDocs(query(collection(db, "users"), where("__name__", "==", user.uid)));
+          if (!userDoc.empty) {
+            const userData = userDoc.docs[0].data();
+            userPerms = userData.permissions || {};
+            document.getElementById('user-info').innerText = `👤 ${userData.username || 'User'} (${userData.role || 'user'})`;
+          }
+        } catch (e) { console.error("User fetch error:", e); }
+        
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('app-screen').classList.remove('hidden');
+        
+        initMonthTabs();
+        await loadCustomers();
+        loadLedger();
+        loadDashboard();
+      } else {
+        currentUser = null;
+        document.getElementById('login-screen').classList.remove('hidden');
+        document.getElementById('app-screen').classList.add('hidden');
+        document.getElementById('login-btn').disabled = false;
+        document.getElementById('login-btn').innerHTML = '🔐 Login Securely';
+      }
+    });
+
+    window.logout = async () => {
+      await signOut(auth);
+      document.getElementById('username').value = '';
+      document.getElementById('pin').value = '';
+      document.getElementById('login-error').classList.add('hidden');
+      document.getElementById('login-success').classList.add('hidden');
+    };
+
+    // ==========================================
+    // 🧭 UI NAVIGATION
+    // ==========================================
+    function initMonthTabs() {
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      document.getElementById('month-tabs').innerHTML = months.map((m, i) => 
+        `<div class="month-tab ${i === selectedMonth ? 'month-active' : ''}" onclick="changeMonth(${i})">${m}</div>`
+      ).join('');
+    }
+    window.changeMonth = (m) => { selectedMonth = m; initMonthTabs(); loadLedger(); loadDashboard(); };
+    window.changeYear = () => { selectedYear = parseInt(document.getElementById('year-select').value); loadLedger(); loadDashboard(); };
+    window.showTab = (tab) => {
+      ['dashboard', 'entry', 'ledger'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.add('hidden');
+        document.getElementById(`tab-${t}`).classList.remove('tab-active');
+        document.getElementById(`tab-${t}`).classList.add('text-gray-600');
+      });
+      document.getElementById(`view-${tab}`).classList.remove('hidden');
+      document.getElementById(`tab-${tab}`).classList.add('tab-active');
+      document.getElementById(`tab-${tab}`).classList.remove('text-gray-600');
+    };
+
+    // ==========================================
+    // 💰 BI-DIRECTIONAL TAX CALCULATOR
+    // ==========================================
+    window.calcTax = (source) => {
+      const type = document.getElementById('type').value;
+      const vatRate = (type === 'Export') ? 0 : 0.16;
+      let net = parseFloat(document.getElementById('net').value) || 0;
+      let gross = parseFloat(document.getElementById('gross').value) || 0;
+      
+      if (source === 'net') {
+        const vat = net * vatRate;
+        gross = net + vat;
+        document.getElementById('vat').value = vat.toFixed(2);
+        document.getElementById('gross').value = gross.toFixed(2);
+      } else if (source === 'gross') {
+        net = gross / (1 + vatRate);
+        const vat = gross - net;
+        document.getElementById('net').value = net.toFixed(2);
+        document.getElementById('vat').value = vat.toFixed(2);
+      }
+    };
+
+    // ==========================================
+    // 🔍 CUSTOMER AUTOCOMPLETE
+    // ==========================================
+    async function loadCustomers() {
+      const snap = await getDocs(collection(db, "customers"));
+      customersCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+    window.searchCust = (val) => {
+      const lower = val.toLowerCase();
+      const dropdown = document.getElementById('cust_dropdown');
+      if (!lower) { dropdown.classList.add('hidden'); return; }
+      const matches = customersCache.filter(c => 
+        c.name.toLowerCase().includes(lower) || c.kra_pin.toLowerCase().includes(lower)
+      );
+      dropdown.innerHTML = matches.map(c => 
+        `<div class="p-2 hover:bg-blue-50 cursor-pointer border-b" onclick="selectCust('${c.id}', '${c.name.replace(/'/g,"\\'")}', '${c.kra_pin}')">
+          <strong>${c.name}</strong> <span class="text-gray-500 text-xs">(${c.kra_pin})</span>
+        </div>`
+      ).join('');
+      dropdown.classList.remove('hidden');
+    };
+    window.selectCust = (id, name, pin) => {
+      document.getElementById('cust_search').value = name;
+      document.getElementById('cust_id').value = id;
+      document.getElementById('cust_pin').value = pin;
+      document.getElementById('cust_dropdown').classList.add('hidden');
+    };
+    window.hideDropdown = () => document.getElementById('cust_dropdown').classList.add('hidden');
+
+    // ==========================================
+    // 💾 SAVE TRANSACTION
+    // ==========================================
+    window.saveTransaction = async () => {
+      const custId = document.getElementById('cust_id').value;
+      if (!custId) return alert("Please select a customer");
+      
+      const type = document.getElementById('type').value;
+      const rate = parseFloat(document.getElementById('exchange_rate').value) || 1;
+      const net = parseFloat(document.getElementById('net').value) || 0;
+      const vat = parseFloat(document.getElementById('vat').value) || 0;
+      const gross = parseFloat(document.getElementById('gross').value) || 0;
+      const invNo = document.getElementById('inv_no').value;
+      const invMatch = invNo.match(/([A-Za-z]+-)?(\d+)/);
+      const dateVal = new Date(document.getElementById('date').value);
+
+      await addDoc(collection(db, "ledger"), {
+        inv_no: invNo, 
+        inv_prefix: invMatch ? (invMatch[1] || "INV-") : "INV-", 
+        inv_numeric: invMatch ? parseInt(invMatch[2]) : 0,
+        date: document.getElementById('date').value,
+        customer_id: custId,
+        customer_name: document.getElementById('cust_search').value,
+        kra_pin: document.getElementById('cust_pin').value,
+        type,
+        currency: document.getElementById('currency').value,
+        exchange_rate: rate,
+        net_amount: net, vat_amount: vat, gross_amount: gross,
+        net_amount_kes: net * rate, vat_amount_kes: vat * rate, gross_amount_kes: gross * rate,
+        status: "Signed",
+        month: dateVal.getMonth(), year: dateVal.getFullYear(),
+        created_by: currentUser.uid,
+        remark: "",
+        timestamp: serverTimestamp()
+      });
+      
+      alert("✓ Transaction Saved & Signed!");
+      document.getElementById('entry-form').reset();
+      document.getElementById('exchange_rate').value = 1;
+      showTab('ledger');
+    };
+
+    // ==========================================
+    // 📋 MASTER LEDGER
+    // ==========================================
+    function loadLedger() {
+      const q = query(
+        collection(db, "ledger"),
+        where("year", "==", selectedYear),
+        where("month", "==", selectedMonth),
+        orderBy("timestamp", "desc")
+      );
+      onSnapshot(q, (snapshot) => {
+        const body = document.getElementById('ledger-body');
+        body.innerHTML = snapshot.docs.map(docSnap => {
+          const d = docSnap.data();
+          const id = docSnap.id;
+          const rowClass = d.type === 'Credit Note' ? 'row-cn' : (d.type === 'Export' ? 'row-export' : '');
+          let actions = `<button onclick="openRemarkModal('${id}')" class="text-gray-500 hover:text-blue-600 text-xs mr-1" title="Remark">📝</button>`;
+          if (d.status === 'Signed' && userPerms.P_Check) 
+            actions += `<button onclick="updateStatus('${id}', 'Checked')" class="bg-blue-500 text-white px-2 py-1 rounded text-xs mr-1">Check</button>`;
+          if (d.status === 'Checked' && userPerms.P_Confirm) 
+            actions += `<button onclick="updateStatus('${id}', 'Confirmed')" class="bg-yellow-500 text-white px-2 py-1 rounded text-xs">Confirm</button>`;
+          
+          return `<tr class="border-b hover:bg-gray-50 ${rowClass}">
+            <td class="p-3">${d.date}</td>
+            <td class="p-3 font-mono">${d.inv_no}</td>
+            <td class="p-3">${d.customer_name}</td>
+            <td class="p-3">${d.type}</td>
+            <td class="p-3 text-right">${(d.net_amount_kes || 0).toFixed(2)}</td>
+            <td class="p-3 text-right">${(d.vat_amount_kes || 0).toFixed(2)}</td>
+            <td class="p-3 text-center"><span class="badge badge-${d.status.toLowerCase()}">${d.status}</span></td>
+            <td class="p-3 text-center">${actions}</td>
+          </tr>`;
+        }).join('');
+      });
+    }
+    window.updateStatus = async (id, newStatus) => {
+      const updates = { status: newStatus };
+      if (newStatus === 'Checked') updates.checked_by = currentUser.uid;
+      if (newStatus === 'Confirmed') updates.confirmed_by = currentUser.uid;
+      await updateDoc(doc(db, "ledger", id), updates);
+    };
+
+    // ==========================================
+    // 📝 REMARK MODAL
+    // ==========================================
+    window.openRemarkModal = (id) => { currentRemarkDocId = id; document.getElementById('remark-modal').classList.remove('hidden'); };
+    window.closeRemarkModal = () => { document.getElementById('remark-modal').classList.add('hidden'); currentRemarkDocId = null; };
+    window.saveRemark = async () => {
+      if (!currentRemarkDocId) return;
+      await updateDoc(doc(db, "ledger", currentRemarkDocId), { remark: document.getElementById('remark-text').value });
+      closeRemarkModal();
+    };
+
+    // ==========================================
+    // 📊 DASHBOARD & CHART
+    // ==========================================
+    async function loadDashboard() {
+      try {
+        const vat3Func = httpsCallable(functions, 'generateVAT3');
+        const res = await vat3Func({ year: selectedYear, month: selectedMonth });
+        const data = res.data;
+        document.getElementById('kpi-standard').innerText = (data.standardRatedSales || 0).toLocaleString();
+        document.getElementById('kpi-zero').innerText = (data.zeroRatedSales || 0).toLocaleString();
+        document.getElementById('kpi-vat').innerText = (data.totalOutputVat || 0).toLocaleString();
+      } catch (e) { console.error("VAT3 Error", e); }
+
+      try {
+        const missingFunc = httpsCallable(functions, 'getMissingInvoices');
+        const res = await missingFunc({ year: selectedYear, prefix: "INV-" });
+        document.getElementById('kpi-missing').innerText = (res.data || []).length;
+      } catch (e) { console.error("Missing Inv Error", e); }
+
+      // Chart
+      const q = query(collection(db, "ledger"), where("year", "==", selectedYear), where("status", "==", "Confirmed"));
+      const snap = await getDocs(q);
+      const monthlyData = Array(12).fill(0);
+      snap.forEach(docSnap => { monthlyData[docSnap.data().month] += docSnap.data().gross_amount_kes || 0; });
+      
+      const ctx = document.getElementById('revenueChart').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: { 
+          labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], 
+          datasets: [{ label: 'Confirmed Revenue (KES)', data: monthlyData, backgroundColor: '#3b82f6' }] 
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+      });
+    }
+  </script>
+</body>
+</html>
